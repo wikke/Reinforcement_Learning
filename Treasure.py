@@ -153,7 +153,7 @@ def SarsaLambda():
             Q += ALPHA * error * eligibility_trace
 
             # decay every time, the far, the less impact
-            eligibility_trace *= TRACE_DECAY * GAMMA
+            eligibility_trace *= TRACE_DECAY
 
             # just assign the next S_ and A_
             S = S_
@@ -165,9 +165,9 @@ def SarsaLambda():
 
 
 def main():
-    Q = QLearning()
+    # Q = QLearning()
     #Q = Sarsa()
-    #Q = SarsaLambda()
+    Q = SarsaLambda()
 
 if __name__ == '__main__':
     main()
