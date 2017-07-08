@@ -2,7 +2,7 @@
 
 ## Treasure.py
 
-cite: (Morvan Youtube)[https://www.youtube.com/channel/UCdyjiB5H8Pu7aDTNVXTTpcg]
+cite: [Morvan Youtube](https://www.youtube.com/channel/UCdyjiB5H8Pu7aDTNVXTTpcg)
 
 找寻宝藏游戏，不断尝试在一条直线上找到宝藏（其实只要一直向右走）的最短路径。
 
@@ -22,7 +22,7 @@ while not determined:
     action = choose_action(status)
     next_status, reward, done = take_action(action)
 
-    # reward + GAMMA * Q[next_status, :].max()相当于期望，减去当前值即残差，然后乘以learning_rate，加到该值
+    # Reward递增 learning * (最大期望 - 当前值)
     Q[status, action] += learning_rate * (reward + GAMMA * Q[next_status, :].max() - Q[status, action])
 
     status = next_status
@@ -39,19 +39,19 @@ while not determined:
     next_status, reward, done = take_action(action)
     next_action = choose_action(next_status, Q)
 
-    # reward + GAMMA * Q[next_status, next_action]相当于期望，减去当前值即残差，然后乘以learning_rate，加到该值
+    # Reward递增 learning * (当前action对应reward + GAMMA * 下一步action对应reward - 当前值)
     Q[status, action] += learning_rate * (reward + GAMMA * Q[next_status, next_action] - Q[status, action])
     status = next_status
     action = next_action
 ```
 
-Sarsa相比Q-Learning，会事先确定好下一步的action，明确Q的增量。不会像Q-Learning，增量是每次最大值，不过下一loop具体选择的时候，可能是exploration，而不是exploiation，选择最大值了。
+Sarsa相比Q-Learning，会事先确定好下一步的action，明确Q的增量。不会像Q-Learning，增量是每次最大值，不过下一步具体选择的时候，可能是explorations随机选择了
 
 
 ### SarsaLambda
 
 ```
-Q2 = Q.copy()
+Q2 init
 
 status = init_status
 action = choose_action(status, Q)
@@ -73,7 +73,7 @@ while not determined:
     Q2[status, :] *= 0
     Q2[status, action] = 1
 
-    # Q的所有历史值都会收到Q2的印象
+    # Q的所有历史值都会受到影响
     Q += learning_rate * error * Q2
 
     # decay every time, the far, the less impact
@@ -107,17 +107,15 @@ while True:
         break
 ```
 
-额外工作还包括：
+注意要点：
 
 - get_valid_actions:不同位置采取的合理action做了限定，从而减少无效action选择。（**这个在DQN中不能使用，因为这会人为减少样本**）
 - 如果第一次进入某个status，确定exploration，而不是exploitation
-- 训练每隔一定间隔做评估，评估方法是多次纯exploitation采用的step数均值。不过到后期这个值会稳定在最优质，从而评估方式改为观察Q table的概率分布是否符合常理，是否足够"确信"
+- 训练每隔一定间隔做评估，评估方法是若干次纯exploitation所采用的step数的均值。不过到后期这个值会稳定在最优值，从而评估方式改为观察Q table的概率分布是否符合常理，是否足够"确信"
 
 ## FrozenLake_DQN.py
 
-FrozenLake.py的Deep Q Learning神经网络实现。
-
-神经网络代码
+FrozenLake.py的Deep Q Learning神经网络实现。网络结构：
 
 ```
 model = Sequential()
@@ -129,18 +127,18 @@ model.compile(loss='mse', optimizer='adadelta')
 
 神经网络输入为一个status(one-hot encoding)，输出为一个nb_action的vector，其中最大值（即reward值）对应的action即为输入status的最佳选择。
 
-不同的地方有：
+实现要点：
 
 - 同样4*4，不光滑游戏场景
 - 重构代码为采用面向对象
-- exploration/exploitation的比例EPSILON采用动态算法，一开始是1.0，每次选择*0.95，直到小于0.2不变
+- **exploration/exploitation的比例EPSILON采用动态算法，一开始是1.0，每次选择*0.95，直到小于0.2不变**
 - 每次32batch一起计算，而不是每一个记录一次计算，从而使得梯度下降更稳定
-- 每次无效的action，比如最左上角的位置采取向左、向上虽然逻辑不合理，但是需要保留，作为训练数据，其reward为0。如果没有这部分数据，训练结果关于这种情况的预测无法把握。
-- 每次掉入Hole时候的reward保持为0不变，尝试过很多次让reward变为-1，-0.1，-0.01，结果都变得很差
-- relu activation比tanh效果稍好些
+- **每次无效的action，比如最左上角的位置采取向左、向上虽然逻辑不合理，但是需要保留，作为训练数据，其reward为0。如果没有这部分数据，训练结果关于这种情况的预测无法把握**
+- **每次掉入Hole时候的reward保持为0不变，尝试过很多次让reward变为-1，-0.1，-0.01，结果都变得很差**
+- **relu activation比tanh效果稍好些**
 - EPSILON_DECAY、EPSILON_MIN、LEARNING_RATE、GAMMA都经过多次尝试，选择最佳
-- 不断执行episodes，然后不断添加到memory，设计的memory是一个有限队列(2000长度，更多自动剔除最早元素)，然后每次训练（replay），从memory中随机采样。
-- 每隔一定间隔做评估，即看不同status下的最佳选择，和预测reward的"自信"程度。下图中是训练2048 epochs，每次32batch后的结果。可以看出第四行第二列是up并不是最佳结果，这是由于这步向上的reward收到过多的上面元素reward值影响。造成这个因素的原因有很多，包括我们随机采样的分布不均匀等。
+- 不断执行episodes，然后不断添加到memory，设计的**memory是一个有限队列**(2000长度，更多自动剔除最早元素)，然后每次训练（replay），从memory中随机采样。
+- 每隔一定间隔做评估，即看不同status下的最佳选择，和预测reward的"自信"程度。下图中是训练2048 epochs，每次32batch后的结果。可以看出第四行第二列是up并不是最佳结果，这是由于这步向上的reward收到过多的上面元素reward值影响。造成这个因素的原因有很多，包括我们**随机采样的分布不均匀**等。
 
 ```
 ---------- DEMO ----------
